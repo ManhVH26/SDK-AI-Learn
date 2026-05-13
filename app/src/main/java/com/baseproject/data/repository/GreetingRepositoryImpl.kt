@@ -1,12 +1,21 @@
 package com.baseproject.data.repository
 
+import com.baseproject.data.local.datastore.AppPreferences
+import com.baseproject.data.local.datastore.PreferenceKeys
 import com.baseproject.domain.model.Greeting
 import com.baseproject.domain.repository.GreetingRepository
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
-class GreetingRepositoryImpl : GreetingRepository {
+class GreetingRepositoryImpl(
+    private val preferences: AppPreferences,
+) : GreetingRepository {
+
     override suspend fun getGreeting(name: String): Greeting {
-        delay(300)
-        return Greeting(message = "Hello, $name!")
+        val stored = preferences.observeNullable(PreferenceKeys.GREETING_MESSAGE).first()
+        return Greeting(message = stored ?: "Hello, $name!")
+    }
+
+    override suspend fun saveGreeting(message: String) {
+        preferences.put(PreferenceKeys.GREETING_MESSAGE, message)
     }
 }

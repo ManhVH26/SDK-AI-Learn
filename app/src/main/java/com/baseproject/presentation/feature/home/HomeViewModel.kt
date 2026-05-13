@@ -3,11 +3,13 @@ package com.baseproject.presentation.feature.home
 import androidx.lifecycle.viewModelScope
 import com.baseproject.core.common.Result
 import com.baseproject.domain.usecase.GetGreetingUseCase
+import com.baseproject.domain.usecase.SaveGreetingUseCase
 import com.baseproject.presentation.base.BaseViewModel
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val getGreetingUseCase: GetGreetingUseCase,
+    private val saveGreetingUseCase: SaveGreetingUseCase,
 ) : BaseViewModel<HomeState, HomeEvent, HomeEffect>(HomeState()) {
 
     init {
@@ -16,8 +18,10 @@ class HomeViewModel(
 
     override fun handleEvent(event: HomeEvent) {
         when (event) {
-            HomeEvent.LoadGreeting -> loadGreeting()
-            HomeEvent.PrimaryClicked -> sendEffect(HomeEffect.NavigateNext)
+            is HomeEvent.LoadGreeting -> loadGreeting()
+            is HomeEvent.PrimaryClicked -> sendEffect(HomeEffect.NavigateNext)
+            is HomeEvent.GreetingInputChanged -> setState { copy(greetingInput = event.value) }
+            is HomeEvent.SaveGreeting -> saveGreeting()
         }
     }
 
@@ -33,6 +37,24 @@ class HomeViewModel(
                     sendEffect(HomeEffect.ShowMessage(result.error.message ?: "Unknown error"))
                 }
                 Result.Loading -> setState { copy(isLoading = true) }
+            }
+        }
+    }
+
+    private fun saveGreeting() {
+        val input = state.value.greetingInput.trim()
+        if (input.isEmpty()) return
+        viewModelScope.launch {
+            when (val result = saveGreetingUseCase(input)) {
+                is Result.Success -> {
+                    setState { copy(greetingInput = "") }
+                    sendEffect(HomeEffect.ShowMessage("Saved!"))
+                    loadGreeting()
+                }
+                is Result.Failure -> {
+                    sendEffect(HomeEffect.ShowMessage(result.error.message ?: "Save failed"))
+                }
+                Result.Loading -> Unit
             }
         }
     }

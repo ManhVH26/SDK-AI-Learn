@@ -261,13 +261,92 @@ Create one feature `home/` (start destination) implementing the full pipeline so
 - `core/common/DispatcherProvider.kt` — `interface DispatcherProvider { val main, io, default }` + `DefaultDispatcherProvider`.
 - `domain/usecase/UseCase.kt` — `abstract class UseCase<P, R>(dispatcherProvider)`: `suspend operator fun invoke(P): Result<R> = withContext(dispatcherProvider.io) { runCatchingResult { execute(P) } }`. Plus `NoParamsUseCase<R>` extending `UseCase<Unit, R>`.
 
-### 12. Verification
+### 12. DataStore Preferences — `data/local/datastore/`
+
+Type-safe key-value persistence using Jetpack DataStore Preferences.
+
+**12.1. Dependencies** — add to `libs.versions.toml`:
+
+```toml
+[versions]
+datastorePreferences = "1.1.x"
+
+[libraries]
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+```
+
+In `app/build.gradle.kts`:
+
+```kotlin
+implementation(libs.androidx.datastore.preferences)
+```
+
+**12.2. Files**
+
+Three files, all in `data/local/datastore/`:
+
+- **`AppDataStore.kt`** — single DataStore instance via extension property delegate:
+
+```kotlin
+private const val APP_PREFS_NAME = "app_prefs"
+
+val Context.appDataStore: DataStore<Preferences> by preferencesDataStore(name = APP_PREFS_NAME)
+```
+
+- **`PreferenceKeys.kt`** — type-safe keys using `Preferences.Key<T>` (NOT raw Strings):
+
+```kotlin
+object PreferenceKeys {
+    val SOME_STRING = stringPreferencesKey("some_string")
+    val SOME_BOOL   = booleanPreferencesKey("some_bool")
+    val SOME_INT    = intPreferencesKey("some_int")
+    val SOME_LONG   = longPreferencesKey("some_long")
+}
+```
+
+- **`AppPreferences.kt`** — generic interface + implementation:
+
+```kotlin
+interface AppPreferences {
+    fun <T> observe(key: Preferences.Key<T>, default: T): Flow<T>
+    fun <T> observeNullable(key: Preferences.Key<T>, default: T? = null): Flow<T?>
+    suspend fun <T> put(key: Preferences.Key<T>, value: T)
+    suspend fun <T> remove(key: Preferences.Key<T>)
+    suspend fun clear()
+}
+
+class AppPreferencesImpl(
+    private val dataStore: DataStore<Preferences>,
+) : AppPreferences {
+    // observe/observeNullable: dataStore.data.safe().map { it[key] ?: default }
+    // put: dataStore.edit { it[key] = value }
+    // remove: dataStore.edit { it.remove(key) }
+    // clear: dataStore.edit { it.clear() }
+    // safe(): Flow<Preferences> extension that catches IOException → emptyPreferences()
+}
+```
+
+**12.3. DI** — register in `eagerModule` (cross-cutting):
+
+```kotlin
+single { androidContext().appDataStore }
+singleOf(::AppPreferencesImpl) { bind<AppPreferences>() }
+```
+
+**12.4. Rules**
+
+- Keys MUST use typed `Preferences.Key<T>` (`stringPreferencesKey`, `intPreferencesKey`, etc.) — never raw Strings. This prevents type-mismatch bugs at compile time.
+- `AppPreferences` methods are generic over `Preferences.Key<T>` — one set of methods covers all types.
+- `remove()` takes a specific `Preferences.Key<T>` — removes only the exact key passed, not guessing across types.
+- `DataStore<Preferences>` is a singleton (`single` in Koin) — the `preferencesDataStore` delegate already enforces one instance per process, but Koin must not create multiple wrappers.
+
+### 13. Verification
 
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL.
 - App launches, shows greeting "Hello, ColorByNumber!" (or equivalent for the new app), Continue button triggers `NavigateNext` effect (no-op for now).
 - If dev machine has JDK 25 installed and the build fails with `IllegalArgumentException: 25.0.2`, point Gradle at JDK 17: `org.gradle.java.home=/path/to/jdk-17` in `gradle.properties`, OR set `JAVA_HOME` to JDK 17 before running.
 
-### 13. What NOT to do
+### 14. What NOT to do
 
 - Do NOT split into multiple Gradle modules.
 - Do NOT scatter DI files per-feature (everything DI lives in `core/di/`).

@@ -4,11 +4,18 @@ import com.baseproject.presentation.base.UiEffect
 import com.baseproject.presentation.base.UiEvent
 import com.baseproject.presentation.base.UiState
 
+data class RemoteConfigState(
+    val forceUpdateEnabled: Boolean = false,
+    val forceUpdateVersion: String = "",
+    val maintenanceMode: Boolean = false,
+)
+
 data class HomeState(
     val isLoading: Boolean = false,
     val greeting: String = "",
     val greetingInput: String = "",
     val errorMessage: String? = null,
+    val remoteConfig: RemoteConfigState = RemoteConfigState(),
 ) : UiState
 
 sealed interface HomeEvent : UiEvent {

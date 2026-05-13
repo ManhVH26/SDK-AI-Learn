@@ -2,4 +2,9 @@
 <resources>
 
     <style name="Theme.BaseProject" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.BaseProject.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@android:color/white</item>
+        <item name="postSplashScreenTheme">@style/Theme.BaseProject</item>
+    </style>
 </resources>

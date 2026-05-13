@@ -2,6 +2,8 @@ package com.baseproject.presentation.feature.home
 
 import androidx.lifecycle.viewModelScope
 import com.baseproject.core.common.Result
+import com.baseproject.domain.repository.RemoteConfigRepository
+import com.baseproject.domain.repository.RemoteConfigRepository.Keys
 import com.baseproject.domain.usecase.GetGreetingUseCase
 import com.baseproject.domain.usecase.SaveGreetingUseCase
 import com.baseproject.presentation.base.BaseViewModel
@@ -10,10 +12,24 @@ import kotlinx.coroutines.launch
 class HomeViewModel(
     private val getGreetingUseCase: GetGreetingUseCase,
     private val saveGreetingUseCase: SaveGreetingUseCase,
+    private val remoteConfigRepository: RemoteConfigRepository,
 ) : BaseViewModel<HomeState, HomeEvent, HomeEffect>(HomeState()) {
 
     init {
+        loadRemoteConfig()
         sendEvent(HomeEvent.LoadGreeting)
+    }
+
+    private fun loadRemoteConfig() {
+        setState {
+            copy(
+                remoteConfig = RemoteConfigState(
+                    forceUpdateEnabled = remoteConfigRepository.getBoolean(Keys.KEY_FORCE_UPDATE_ENABLED),
+                    forceUpdateVersion = remoteConfigRepository.getString(Keys.KEY_FORCE_UPDATE_VERSION),
+                    maintenanceMode = remoteConfigRepository.getBoolean(Keys.KEY_MAINTENANCE_MODE),
+                )
+            )
+        }
     }
 
     override fun handleEvent(event: HomeEvent) {

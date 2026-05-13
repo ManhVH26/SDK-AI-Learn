@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "429076734890",
+    "project_id": "aip868-nightlore",
+    "storage_bucket": "aip868-nightlore.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:429076734890:android:48cd3f0317d80c5556c1d3",
+        "android_client_info": {
+          "package_name": "com.ada.scarychats.textchat.chatstories.creepystories"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOz-MoGZw9SLMg16_x-c_WF7-ddFvsGZw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

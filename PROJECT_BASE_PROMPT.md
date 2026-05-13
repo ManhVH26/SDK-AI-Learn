@@ -221,19 +221,45 @@ Register in `startKoin { modules(eagerModule, firebaseModule); lazyModules(lazyM
 
 **9.5. Remote Config helper — `data/firebase/RemoteConfigHelper.kt`** (only if Remote Config is used)
 
-Single source of truth for keys + defaults so client/server cannot drift.
+Single source of truth for keys, defaults, getters, and settings — all in one object. No separate keys file.
 
 ```kotlin
 object RemoteConfigHelper {
-    val DEFAULTS: Map<String, Any> = mapOf(/* key -> default value */)
+
+    // ── Generic getters ──────────────────────────────────────────────────────
+
+    fun getString(config: FirebaseRemoteConfig, key: String): String =
+        config.getString(key)
+
+    fun getLong(config: FirebaseRemoteConfig, key: String): Long =
+        config.getLong(key)
+
+    fun getBoolean(config: FirebaseRemoteConfig, key: String): Boolean =
+        config.getBoolean(key)
+
+    suspend fun fetchAndActivate(config: FirebaseRemoteConfig): Boolean {
+        return try {
+            config.fetchAndActivate().await()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // ── Config Keys ──────────────────────────────────────────────────────────
+
+    const val KEY_EXAMPLE = "example_key"
+
+    // ── Defaults ─────────────────────────────────────────────────────────────
+
+    val DEFAULTS: Map<String, Any> = mapOf(
+        KEY_EXAMPLE to false,
+    )
+
+    // ── Settings ─────────────────────────────────────────────────────────────
 
     fun buildSettings() = remoteConfigSettings {
         minimumFetchIntervalInSeconds = if (BuildConfig.DEBUG) 0L else 3_600L
     }
-
-    suspend fun fetchAndActivate(config: FirebaseRemoteConfig): Boolean = runCatching {
-        config.fetchAndActivate().await()
-    }.getOrDefault(false)  // swallow + log; callers (Splash) fire-and-forget
 }
 ```
 

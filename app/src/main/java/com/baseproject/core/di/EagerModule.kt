@@ -6,7 +6,9 @@ import com.baseproject.data.local.datastore.AppPreferences
 import com.baseproject.data.local.datastore.AppPreferencesImpl
 import com.baseproject.data.local.datastore.appDataStore
 import com.baseproject.data.repository.GreetingRepositoryImpl
+import com.baseproject.data.repository.RemoteConfigRepositoryImpl
 import com.baseproject.domain.repository.GreetingRepository
+import com.baseproject.domain.repository.RemoteConfigRepository
 import com.baseproject.domain.usecase.GetGreetingUseCase
 import com.baseproject.domain.usecase.SaveGreetingUseCase
 import com.baseproject.presentation.feature.home.HomeViewModel
@@ -29,6 +31,7 @@ val eagerModule = module {
 
     // ============ Repository module ============
     singleOf(::GreetingRepositoryImpl) { bind<GreetingRepository>() }
+    singleOf(::RemoteConfigRepositoryImpl) { bind<RemoteConfigRepository>() }
 
     // ============ UseCase module ============
     factoryOf(::GetGreetingUseCase)

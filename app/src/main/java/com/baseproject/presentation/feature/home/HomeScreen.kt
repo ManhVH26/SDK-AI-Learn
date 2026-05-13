@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -76,6 +77,25 @@ fun HomeScreen(
                 enabled = state.greetingInput.isNotBlank(),
             )
         }
+
+        HorizontalDivider()
+
+        AppText(
+            text = "Remote Config",
+            style = AppTheme.typography.titleMedium,
+        )
+        AppText(
+            text = "force_update_enabled: ${state.remoteConfig.forceUpdateEnabled}",
+            style = AppTheme.typography.bodyMedium,
+        )
+        AppText(
+            text = "force_update_version: \"${state.remoteConfig.forceUpdateVersion}\"",
+            style = AppTheme.typography.bodyMedium,
+        )
+        AppText(
+            text = "maintenance_mode: ${state.remoteConfig.maintenanceMode}",
+            style = AppTheme.typography.bodyMedium,
+        )
 
         AppButton(
             text = "Continue",

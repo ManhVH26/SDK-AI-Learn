@@ -1,7 +1,9 @@
 package com.baseproject.core.di
 
+import androidx.room.Room
 import com.baseproject.core.common.DefaultDispatcherProvider
 import com.baseproject.core.common.DispatcherProvider
+import com.baseproject.data.local.database.AppDatabase
 import com.baseproject.data.local.datastore.AppPreferences
 import com.baseproject.data.local.datastore.AppPreferencesImpl
 import com.baseproject.data.local.datastore.appDataStore
@@ -26,8 +28,16 @@ val eagerModule = module {
     singleOf(::DefaultDispatcherProvider) { bind<DispatcherProvider>() }
     single { androidContext().appDataStore }
     singleOf(::AppPreferencesImpl) { bind<AppPreferences>() }
+    single<AppDatabase> {
+        Room.databaseBuilder(
+            androidContext(),
+            AppDatabase::class.java,
+            AppDatabase.DATABASE_NAME,
+        ).build()
+    }
 
     // ============ Data module ============
+    single { get<AppDatabase>().greetingDao() }
 
     // ============ Repository module ============
     singleOf(::GreetingRepositoryImpl) { bind<GreetingRepository>() }

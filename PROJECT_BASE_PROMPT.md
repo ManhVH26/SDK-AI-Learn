@@ -27,8 +27,10 @@ Use a `gradle/libs.versions.toml` version catalog with at least:
 - `org.jetbrains.kotlinx:kotlinx-coroutines-core` + `-android` 1.9.x
 - `androidx.lifecycle:lifecycle-viewmodel-compose` + `lifecycle-runtime-compose` 2.8.x
 - Koin **4.0.0**: `koin-core`, `koin-core-coroutines` (REQUIRED for `lazyModule`/`lazyModules`), `koin-android`, `koin-androidx-compose`, `koin-androidx-compose-navigation`
+- `androidx.room:room-runtime` + `room-ktx` 2.8.x, `room-compiler` via KSP
+- KSP (`com.google.devtools.ksp`) — version must match Kotlin version prefix (e.g. `2.1.21-2.0.x` for Kotlin 2.1.21)
 
-Plugins to enable: `kotlin-android`, `kotlin-compose`, `kotlin-serialization`. Enable `buildFeatures { compose = true; buildConfig = true }`.
+Plugins to enable: `kotlin-android`, `kotlin-compose`, `kotlin-serialization`, `ksp`. Enable `buildFeatures { compose = true; buildConfig = true }`.
 
 ### 2. Module structure (single `:app` module)
 
@@ -39,7 +41,11 @@ Plugins to enable: `kotlin-android`, `kotlin-compose`, `kotlin-serialization`. E
 ├── core/
 │   ├── common/      Result.kt, DispatcherProvider.kt
 │   └── di/          EagerModule.kt, LazyModule.kt
-├── data/repository/                     <Feature>RepositoryImpl
+├── data/
+│   ├── local/
+│   │   ├── database/   AppDatabase, entity/, dao/, converter/
+│   │   └── datastore/  AppDataStore, PreferenceKeys, AppPreferences
+│   └── repository/                      <Feature>RepositoryImpl
 ├── domain/
 │   ├── model/
 │   ├── repository/                      <Feature>Repository (interface)
@@ -366,13 +372,151 @@ singleOf(::AppPreferencesImpl) { bind<AppPreferences>() }
 - `remove()` takes a specific `Preferences.Key<T>` — removes only the exact key passed, not guessing across types.
 - `DataStore<Preferences>` is a singleton (`single` in Koin) — the `preferencesDataStore` delegate already enforces one instance per process, but Koin must not create multiple wrappers.
 
-### 13. Verification
+### 13. Room Database — `data/local/database/`
+
+Structured local persistence using Room (SQLite abstraction).
+
+**13.1. Dependencies & plugins**
+
+Add KSP plugin to `libs.versions.toml` `[plugins]` section:
+
+```toml
+ksp = { id = "com.google.devtools.ksp", version = "<kotlin-version>-2.0.x" }
+```
+
+> KSP version format: `{kotlinVersion}-{kspPatch}`. Match the Kotlin prefix exactly. Check [KSP releases](https://github.com/google/ksp/releases) for the latest patch.
+
+In `libs.versions.toml` `[versions]` and `[libraries]`:
+
+```toml
+[versions]
+room = "2.8.x"
+
+[libraries]
+androidx-room-runtime  = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx      = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+```
+
+In project-level `build.gradle.kts`: `alias(libs.plugins.ksp) apply false`.
+In `app/build.gradle.kts`:
+
+```kotlin
+plugins {
+    alias(libs.plugins.ksp)
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+dependencies {
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+}
+```
+
+**13.2. Files**
+
+Four directories under `data/local/database/`:
+
+- **`entity/`** — Room `@Entity` classes. Each entity maps to a table. Entities live in the data layer, NOT domain. Provide `toDomain()` on the entity and a `toEntity()` extension on the domain model for mapping.
+
+```kotlin
+@Entity(tableName = "greetings")
+data class GreetingEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val message: String,
+    val createdAt: Long = System.currentTimeMillis(),
+) {
+    fun toDomain(): Greeting = Greeting(message = message)
+}
+
+fun Greeting.toEntity(): GreetingEntity = GreetingEntity(message = message)
+```
+
+- **`dao/`** — `@Dao` interfaces. Return `Flow<List<…>>` for observable queries, `suspend fun` for writes.
+
+```kotlin
+@Dao
+interface GreetingDao {
+    @Query("SELECT * FROM greetings ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<GreetingEntity>>
+
+    @Query("SELECT * FROM greetings WHERE id = :id")
+    suspend fun getById(id: Long): GreetingEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: GreetingEntity): Long
+
+    @Delete
+    suspend fun delete(entity: GreetingEntity)
+
+    @Query("DELETE FROM greetings")
+    suspend fun deleteAll()
+}
+```
+
+- **`converter/Converters.kt`** — `@TypeConverter` methods for types Room cannot store natively (e.g. `Date ↔ Long`).
+
+```kotlin
+class Converters {
+    @TypeConverter
+    fun fromTimestamp(value: Long?): Date? = value?.let { Date(it) }
+
+    @TypeConverter
+    fun dateToTimestamp(date: Date?): Long? = date?.time
+}
+```
+
+- **`AppDatabase.kt`** — single abstract `RoomDatabase` subclass.
+
+```kotlin
+@Database(
+    entities = [GreetingEntity::class],
+    version = 1,
+    exportSchema = true,
+)
+@TypeConverters(Converters::class)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun greetingDao(): GreetingDao
+
+    companion object {
+        const val DATABASE_NAME = "app_database"
+    }
+}
+```
+
+**13.3. DI** — register in `eagerModule` (cross-cutting):
+
+```kotlin
+single<AppDatabase> {
+    Room.databaseBuilder(
+        androidContext(),
+        AppDatabase::class.java,
+        AppDatabase.DATABASE_NAME,
+    ).build()
+}
+single { get<AppDatabase>().greetingDao() }
+```
+
+**13.4. Rules**
+
+- `AppDatabase` is a singleton (`single` in Koin) — Room itself is thread-safe, but creating multiple instances causes file-locking issues.
+- Entity ↔ Domain model mapping lives on the entity (`toDomain()`) and as an extension (`toEntity()`). Domain models MUST NOT have Room annotations — domain stays framework-free.
+- DAOs return `Flow` for reads (reactive), `suspend fun` for writes.
+- `exportSchema = true` + `room.schemaLocation` KSP arg — exports JSON schemas to `app/schemas/` for migration testing. Add `app/schemas/` to version control.
+- When adding a new table: create entity + DAO, add entity to `@Database(entities = [...])`, add DAO abstract fun, register DAO in `eagerModule`, bump `version` and provide a `Migration(oldVersion, newVersion)` or use `fallbackToDestructiveMigration()` during early development.
+
+### 14. Verification
 
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL.
 - App launches, shows greeting "Hello, ColorByNumber!" (or equivalent for the new app), Continue button triggers `NavigateNext` effect (no-op for now).
 - If dev machine has JDK 25 installed and the build fails with `IllegalArgumentException: 25.0.2`, point Gradle at JDK 17: `org.gradle.java.home=/path/to/jdk-17` in `gradle.properties`, OR set `JAVA_HOME` to JDK 17 before running.
 
-### 14. What NOT to do
+### 15. What NOT to do
 
 - Do NOT split into multiple Gradle modules.
 - Do NOT scatter DI files per-feature (everything DI lives in `core/di/`).

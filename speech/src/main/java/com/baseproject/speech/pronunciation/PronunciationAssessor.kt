@@ -8,6 +8,7 @@ abstract class PronunciationAssessor {
         referenceText: String,
         spokenText: String,
         locale: Locale = Locale.US,
+        sttMetadata: SttMetadata? = null,
     ): PronunciationResult
 
     protected fun normalizeText(text: String): List<String> =

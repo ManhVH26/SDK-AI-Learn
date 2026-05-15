@@ -6,6 +6,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import com.baseproject.presentation.feature.home.Home
 import com.baseproject.presentation.feature.home.homeScreen
+import com.baseproject.presentation.feature.speechtest.SpeechTest
+import com.baseproject.presentation.feature.speechtest.speechTestScreen
 
 @Composable
 fun AppNavHost(modifier: Modifier = Modifier) {
@@ -17,7 +19,10 @@ fun AppNavHost(modifier: Modifier = Modifier) {
         modifier = modifier,
     ) {
         homeScreen(
-            onNavigateNext = { /* no-op for now */ },
+            onNavigateNext = { navController.navigate(SpeechTest) },
+        )
+        speechTestScreen(
+            onBack = { navController.popBackStack() },
         )
     }
 }

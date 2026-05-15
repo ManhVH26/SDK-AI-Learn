@@ -4,6 +4,7 @@ import android.app.Application
 import com.baseproject.core.di.eagerModule
 import com.baseproject.core.di.firebaseModule
 import com.baseproject.core.di.lazyModule
+import com.baseproject.speech.di.speechModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.lazyModules
@@ -16,7 +17,7 @@ class BaseProjectApplication : Application() {
         startKoin {
             androidLogger(if (BuildConfig.DEBUG) Level.DEBUG else Level.NONE)
             androidContext(this@BaseProjectApplication)
-            modules(eagerModule, firebaseModule)
+            modules(eagerModule, firebaseModule, speechModule)
             lazyModules(lazyModule)
         }
     }

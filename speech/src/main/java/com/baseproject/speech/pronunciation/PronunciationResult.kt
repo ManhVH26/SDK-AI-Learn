@@ -6,11 +6,14 @@ data class PronunciationResult(
     val matchedWords: List<String>,
     val unmatchedWords: List<String>,
     val wordDetails: List<WordDetail>,
+    val wordMatchScore: Float = score,
+    val orderScore: Float = 100f,
 )
 
 data class WordDetail(
     val word: String,
     val isMatched: Boolean,
+    val similarity: Float = if (isMatched) 1f else 0f,
 )
 
 enum class PronunciationLevel(val label: String) {

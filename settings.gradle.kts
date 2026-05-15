@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AIP396 AI Learn Language"
+rootProject.name = "SDK AI Learn"
 include(":app")
 include(":speech")
